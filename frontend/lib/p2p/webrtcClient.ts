@@ -115,6 +115,7 @@ export class WebRTCClient {
     });
 
     this.socket.on(`chunk:request:${this.peerId}`, async (data: { fileId: string; chunkIndex: number; fromPeerId: string }) => {
+      console.log(`📨 Received chunk:request event for chunk ${data.chunkIndex} from ${data.fromPeerId}`);
       await this.handleChunkRequest(data.fileId, data.chunkIndex, data.fromPeerId);
     });
 

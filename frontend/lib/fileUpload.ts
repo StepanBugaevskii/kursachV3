@@ -189,7 +189,18 @@ export class FileDownloader {
     const chunks = await chunksApi.getByFile(this.fileId);
     const totalChunks = chunks.length;
 
-    // 3. Download chunks
+    // 3. Get online peers to map userId to current P2P peerId
+    const onlinePeersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
+    const onlinePeers = await onlinePeersResponse.json();
+    const onlinePeersMap = new Map(
+      onlinePeers
+        .filter((p: any) => p.isOnline)
+        .map((p: any) => [p.userId, p.peerId])
+    );
+
+    console.log('📋 Online peers map:', Array.from(onlinePeersMap.entries()));
+
+    // 4. Download chunks
     const chunkData: Uint8Array[] = new Array(totalChunks);
 
     for (let i = 0; i < totalChunks; i++) {
@@ -202,17 +213,36 @@ export class FileDownloader {
         // Get from peers via P2P
         const providers = await chunksApi.getProviders(chunk.id);
         
+        console.log(`📦 Chunk ${i} providers:`, providers.map(p => ({
+          dbPeerId: p.peerId,
+          userId: (p as any).peer?.userId,
+          p2pPeerId: (p as any).peer?.peerId
+        })));
+        
         if (providers.length > 0) {
           // Try each provider until successful
           for (const provider of providers) {
             try {
-              // Use peer.peerId (P2P identifier) instead of provider.peerId (database UUID)
-              const p2pPeerId = (provider as any).peer?.peerId || provider.peerId;
+              // Get userId from provider.peer
+              const userId = (provider as any).peer?.userId;
               
-              console.log(`Requesting chunk ${i} from peer ${p2pPeerId}`);
+              if (!userId) {
+                console.warn(`⚠️ No userId for provider ${provider.peerId}`);
+                continue;
+              }
+
+              // Get current P2P peerId from online peers
+              const currentP2PPeerId = onlinePeersMap.get(userId);
+              
+              if (!currentP2PPeerId || typeof currentP2PPeerId !== 'string') {
+                console.warn(`⚠️ Peer ${userId} is not online or has invalid peerId`);
+                continue;
+              }
+
+              console.log(`📥 Requesting chunk ${i} from peer ${currentP2PPeerId} (user: ${userId})`);
               
               data = await this.requestChunkFromPeer(
-                p2pPeerId,
+                currentP2PPeerId,
                 this.fileId,
                 i
               );
@@ -247,7 +277,7 @@ export class FileDownloader {
       });
     }
 
-    // 4. Combine chunks - cast to BlobPart for TypeScript
+    // 5. Combine chunks - cast to BlobPart for TypeScript
     return new Blob(chunkData as BlobPart[], { type: file.mimeType });
   }
 
