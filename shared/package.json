@@ -1,0 +1,25 @@
+{
+  "name": "@meshnetwork/shared",
+  "version": "1.0.0",
+  "description": "Shared code for MeshNetwork",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "libp2p": "^1.0.0",
+    "@libp2p/webrtc": "^4.0.0",
+    "@libp2p/websockets": "^8.0.0",
+    "@chainsafe/libp2p-yamux": "^6.0.0",
+    "@chainsafe/libp2p-noise": "^15.0.0",
+    "@libp2p/bootstrap": "^10.0.0",
+    "@libp2p/peer-id": "^4.0.0",
+    "@multiformats/multiaddr": "^12.0.0",
+    "it-pipe": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

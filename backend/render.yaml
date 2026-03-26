@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: meshnetwork-backend
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meshnetwork-db
+          property: connectionString
+
+databases:
+  - name: meshnetwork-db
+    databaseName: mesh_network
+    user: postgres
+    plan: free
