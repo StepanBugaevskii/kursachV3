@@ -67,7 +67,37 @@ export class FileUploader {
     await this.storeChunksLocally(fileMetadata.id, chunks);
 
     // 5. Upload chunk metadata to backend
-    const currentPeerId = webrtcClient.getPeerId();
+    const currentP2PPeerId = webrtcClient.getPeerId();
+    
+    // 6. Register as peer if not already registered
+    let peerDbId: string | null = null;
+    if (currentP2PPeerId) {
+      try {
+        // Check if peer exists, if not create it
+        const peersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
+        const peers = await peersResponse.json();
+        let peer = peers.find((p: any) => p.peerId === currentP2PPeerId);
+        
+        if (!peer) {
+          // Register new peer
+          const registerResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              peerId: currentP2PPeerId,
+              userId: ownerId,
+              clientType: 'browser',
+              isOnline: true,
+            }),
+          });
+          peer = await registerResponse.json();
+        }
+        
+        peerDbId = peer.id; // UUID from database
+      } catch (error) {
+        console.warn('Failed to register peer:', error);
+      }
+    }
     
     for (const chunk of chunks) {
       const chunkMetadata = await chunksApi.create({
@@ -78,12 +108,12 @@ export class FileUploader {
         encryptionStatus: false,
       });
 
-      // Register this peer as provider of the chunk
-      if (currentPeerId) {
+      // Register this peer as provider of the chunk using database peer ID
+      if (peerDbId) {
         try {
           await chunksApi.addReplica({
             chunkId: chunkMetadata.id,
-            peerId: currentPeerId,
+            peerId: peerDbId, // Use database UUID, not P2P peerId
             replicaPriority: 1,
             healthStatus: 'healthy',
           });
@@ -93,7 +123,7 @@ export class FileUploader {
       }
     }
 
-    // 6. Setup chunk request handler for P2P sharing
+    // 7. Setup chunk request handler for P2P sharing
     webrtcClient.onChunkRequest(async (fileId, chunkIndex) => {
       return await this.getChunkFromLocal(fileId, chunkIndex);
     });
