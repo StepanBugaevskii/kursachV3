@@ -1,13 +1,14 @@
 'use client';
 
 import { Layout, Typography, Button, Space, Modal, message, Progress } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { FileList } from '@/modules/files/ui/FileList';
 import { FileUpload } from '@/modules/files/ui/FileUpload';
 import { useFiles } from '@/modules/files/hooks/useFiles';
 import { FileDownloader, UploadProgress } from '@/lib/fileUpload';
 import { P2PStatus } from '@/modules/p2p/ui/P2PStatus';
+import { useUserStore } from '@/modules/users/model/userStore';
 import Link from 'next/link';
 
 const { Header, Content } = Layout;
@@ -15,9 +16,16 @@ const { Title } = Typography;
 
 export default function FilesPage() {
   const { files, loading, deleteFile, refetch } = useFiles();
+  const { currentUser, logout } = useUserStore();
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<UploadProgress | null>(null);
   const [downloading, setDownloading] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    localStorage.removeItem('userId');
+    window.location.href = '/';
+  };
 
   const handleDownload = async (file: any) => {
     setDownloading(true);
@@ -97,6 +105,18 @@ export default function FilesPage() {
           >
             Upload File
           </Button>
+          {currentUser && (
+            <>
+              <span className="text-sm">
+                <UserOutlined /> {currentUser.displayName}
+              </span>
+              <Button 
+                icon={<LogoutOutlined />} 
+                onClick={handleLogout}
+                type="text"
+              />
+            </>
+          )}
         </Space>
       </Header>
 

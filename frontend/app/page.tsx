@@ -6,19 +6,29 @@ import {
   CloudUploadOutlined, 
   CloudDownloadOutlined, 
   TeamOutlined,
-  FileOutlined 
+  FileOutlined,
+  LogoutOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import Link from 'next/link';
+import { useUserStore } from '@/modules/users/model/userStore';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph } = Typography;
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const { currentUser, logout } = useUserStore();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    localStorage.removeItem('userId');
+    window.location.reload();
+  };
 
   if (!mounted) return null;
 
@@ -26,21 +36,35 @@ export default function Home() {
     <Layout className="min-h-screen">
       <Header className="flex items-center justify-between bg-white shadow-sm">
         <div className="flex items-center">
-          <Title level={3} className="!mb-0 !text-blue-600">
+          <Title level={3} className="mb-0! text-blue-600!">
             MeshShare
           </Title>
         </div>
-        <Menu mode="horizontal" className="border-0 flex-1 justify-end">
-          <Menu.Item key="files">
-            <Link href="/files">Files</Link>
-          </Menu.Item>
-          <Menu.Item key="peers">
-            <Link href="/peers">Peers</Link>
-          </Menu.Item>
-          <Menu.Item key="profile">
-            <Link href="/profile">Profile</Link>
-          </Menu.Item>
-        </Menu>
+        <div className="flex items-center gap-4">
+          <Menu mode="horizontal" className="border-0">
+            <Menu.Item key="files">
+              <Link href="/files">Files</Link>
+            </Menu.Item>
+            <Menu.Item key="peers">
+              <Link href="/peers">Peers</Link>
+            </Menu.Item>
+          </Menu>
+          {currentUser && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <UserOutlined />
+                <span className="text-sm">{currentUser.displayName}</span>
+              </div>
+              <Button 
+                icon={<LogoutOutlined />} 
+                onClick={handleLogout}
+                type="text"
+              >
+                Logout
+              </Button>
+            </div>
+          )}
+        </div>
       </Header>
 
       <Content className="p-8">
