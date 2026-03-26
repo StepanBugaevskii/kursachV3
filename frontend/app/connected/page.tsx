@@ -1,23 +1,21 @@
 'use client';
 
-import { Layout, Typography, Button, Space, Modal, message, Progress } from 'antd';
-import { PlusOutlined, ReloadOutlined, LogoutOutlined, UserOutlined, FileOutlined, TeamOutlined, CloudUploadOutlined, LinkOutlined } from '@ant-design/icons';
-import { useState } from 'react';
-import { FileList } from '@/modules/files/ui/FileList';
-import { FileUpload } from '@/modules/files/ui/FileUpload';
-import { useFiles } from '@/modules/files/hooks/useFiles';
-import { FileDownloader, UploadProgress } from '@/lib/fileUpload';
-import { P2PStatus } from '@/modules/p2p/ui/P2PStatus';
+import { Layout, Typography, Button, Space, Empty, message, Modal, Progress } from 'antd';
+import { ReloadOutlined, LogoutOutlined, UserOutlined, FileOutlined, TeamOutlined, CloudUploadOutlined, LinkOutlined } from '@ant-design/icons';
+import { useConnectedPeers } from '@/modules/peers/hooks/useConnectedPeers';
+import { ConnectedPeerCard } from '@/modules/peers/ui/ConnectedPeerCard';
 import { useUserStore } from '@/modules/users/model/userStore';
+import { FileDownloader, UploadProgress } from '@/lib/fileUpload';
+import { webrtcClient } from '@/lib/p2p/webrtcClient';
+import { useState } from 'react';
 import Link from 'next/link';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-export default function FilesPage() {
-  const { files, loading, deleteFile, refetch } = useFiles();
+export default function ConnectedPage() {
+  const { connectedPeers, loading, refetch } = useConnectedPeers();
   const { currentUser, logout } = useUserStore();
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<UploadProgress | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -44,7 +42,6 @@ export default function FilesPage() {
 
       const blob = await downloader.download();
       
-      // Create download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -64,19 +61,18 @@ export default function FilesPage() {
     }
   };
 
-  const handleDelete = (file: any) => {
+  const handleDisconnect = (peerId: string) => {
     Modal.confirm({
-      title: 'Delete File',
-      content: `Are you sure you want to delete "${file.fileName}"?`,
-      okText: 'Delete',
+      title: 'Disconnect from peer?',
+      content: 'You will no longer be able to download files from this peer.',
+      okText: 'Disconnect',
       okType: 'danger',
-      onOk: () => deleteFile(file.id),
+      onOk: () => {
+        // WebRTC connections close automatically
+        message.success('Disconnected from peer');
+        refetch();
+      },
     });
-  };
-
-  const handleUploadComplete = () => {
-    setUploadModalOpen(false);
-    refetch();
   };
 
   return (
@@ -88,10 +84,7 @@ export default function FilesPage() {
               MeshShare
             </Title>
           </Link>
-          <Space size="small" className="md:space-x-2">
-            <Link href="/peers" className="hidden md:inline">
-              <Button>Peers</Button>
-            </Link>
+          <Space size="small">
             <Button 
               icon={<ReloadOutlined />}
               onClick={refetch}
@@ -99,22 +92,13 @@ export default function FilesPage() {
               size="small"
               className="md:size-middle"
             />
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => setUploadModalOpen(true)}
-              size="small"
-              className="md:size-middle"
-            >
-              <span className="hidden md:inline">Upload</span>
-            </Button>
             {currentUser && (
               <Button 
                 icon={<LogoutOutlined />} 
                 onClick={handleLogout}
                 type="text"
                 size="small"
-                className="md:size-middle hidden md:inline-flex"
+                className="hidden md:inline-flex"
               />
             )}
           </Space>
@@ -123,20 +107,47 @@ export default function FilesPage() {
 
       <Content className="p-4 md:p-8 pb-20 md:pb-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-4 md:mb-6">
-            <Title level={2} className="text-xl md:text-3xl">My Files</Title>
+          <div className="mb-4 md:mb-6 flex items-center justify-between">
+            <div>
+              <Title level={2} className="text-xl md:text-3xl mb-1!">
+                Connected Peers
+              </Title>
+              <Typography.Text type="secondary" className="text-sm">
+                {connectedPeers.length} {connectedPeers.length === 1 ? 'peer' : 'peers'} connected
+              </Typography.Text>
+            </div>
+            <Link href="/peers">
+              <Button icon={<LinkOutlined />} size="small" className="md:size-middle">
+                Find Peers
+              </Button>
+            </Link>
           </div>
 
-          <div className="mb-4 md:mb-6">
-            <P2PStatus />
-          </div>
-
-          <FileList 
-            files={files} 
-            loading={loading}
-            onDownload={handleDownload}
-            onDelete={handleDelete}
-          />
+          {connectedPeers.length === 0 ? (
+            <Empty 
+              description={
+                <div className="text-center">
+                  <p className="mb-4">No peers connected</p>
+                  <Link href="/peers">
+                    <Button type="primary" icon={<TeamOutlined />}>
+                      Connect to Peers
+                    </Button>
+                  </Link>
+                </div>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {connectedPeers.map((peer) => (
+                <ConnectedPeerCard
+                  key={peer.peerId}
+                  peer={peer}
+                  onDownload={handleDownload}
+                  onDisconnect={handleDisconnect}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </Content>
 
@@ -147,11 +158,11 @@ export default function FilesPage() {
             <CloudUploadOutlined className="text-xl" />
             <span className="text-xs">Home</span>
           </Link>
-          <Link href="/files" className="flex flex-col items-center gap-1 text-blue-600">
+          <Link href="/files" className="flex flex-col items-center gap-1">
             <FileOutlined className="text-xl" />
             <span className="text-xs">My Files</span>
           </Link>
-          <Link href="/connected" className="flex flex-col items-center gap-1">
+          <Link href="/connected" className="flex flex-col items-center gap-1 text-blue-600">
             <LinkOutlined className="text-xl" />
             <span className="text-xs">Connected</span>
           </Link>
@@ -161,17 +172,6 @@ export default function FilesPage() {
           </Link>
         </div>
       </div>
-
-      <Modal
-        title="Upload File"
-        open={uploadModalOpen}
-        onCancel={() => setUploadModalOpen(false)}
-        footer={null}
-        width="90%"
-        className="md:max-w-md"
-      >
-        <FileUpload onUploadComplete={handleUploadComplete} />
-      </Modal>
 
       <Modal
         title="Downloading File"

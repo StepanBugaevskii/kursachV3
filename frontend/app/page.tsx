@@ -8,7 +8,8 @@ import {
   TeamOutlined,
   FileOutlined,
   LogoutOutlined,
-  UserOutlined
+  UserOutlined,
+  LinkOutlined
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useUserStore } from '@/modules/users/model/userStore';
@@ -34,95 +35,114 @@ export default function Home() {
 
   return (
     <Layout className="min-h-screen">
-      <Header className="flex items-center justify-between bg-white shadow-sm">
-        <div className="flex items-center">
-          <Title level={3} className="mb-0! text-blue-600!">
+      <Header className="bg-white shadow-sm px-4 md:px-6">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <Title level={3} className="mb-0! text-blue-600! text-lg md:text-2xl">
             MeshShare
           </Title>
-        </div>
-        <div className="flex items-center gap-4">
-          <Menu mode="horizontal" className="border-0">
-            <Menu.Item key="files">
-              <Link href="/files">Files</Link>
-            </Menu.Item>
-            <Menu.Item key="peers">
-              <Link href="/peers">Peers</Link>
-            </Menu.Item>
-          </Menu>
-          {currentUser && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <UserOutlined />
-                <span className="text-sm">{currentUser.displayName}</span>
+          <div className="flex items-center gap-2 md:gap-4">
+            <Menu mode="horizontal" className="border-0 hidden md:flex">
+              <Menu.Item key="files">
+                <Link href="/files">Files</Link>
+              </Menu.Item>
+              <Menu.Item key="connected">
+                <Link href="/connected">Connected</Link>
+              </Menu.Item>
+              <Menu.Item key="peers">
+                <Link href="/peers">Peers</Link>
+              </Menu.Item>
+            </Menu>
+            {currentUser && (
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="hidden md:flex items-center gap-2">
+                  <UserOutlined />
+                  <span className="text-sm">{currentUser.displayName}</span>
+                </div>
+                <Button 
+                  icon={<LogoutOutlined />} 
+                  onClick={handleLogout}
+                  type="text"
+                  size="small"
+                  className="md:size-middle"
+                />
               </div>
-              <Button 
-                icon={<LogoutOutlined />} 
-                onClick={handleLogout}
-                type="text"
-              >
-                Logout
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Header>
 
-      <Content className="p-8">
+      <Content className="p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <Title level={1}>Decentralized File Sharing</Title>
-            <Paragraph className="text-lg text-gray-600">
+          <div className="text-center mb-8 md:mb-12">
+            <Title level={1} className="text-2xl md:text-4xl">Decentralized File Sharing</Title>
+            <Paragraph className="text-base md:text-lg text-gray-600">
               Share files directly with peers using mesh network technology
             </Paragraph>
-            <Space size="large" className="mt-6">
-              <Link href="/upload">
-                <Button type="primary" size="large" icon={<CloudUploadOutlined />}>
-                  Upload File
+            <Space size="middle" className="mt-4 md:mt-6 flex-wrap justify-center">
+              <Link href="/files">
+                <Button size="large" icon={<FileOutlined />} block className="w-full md:w-auto">
+                  Browse Files
                 </Button>
               </Link>
-              <Link href="/files">
-                <Button size="large" icon={<FileOutlined />}>
-                  Browse Files
+              <Link href="/peers">
+                <Button size="large" icon={<TeamOutlined />} block className="w-full md:w-auto">
+                  View Peers
                 </Button>
               </Link>
             </Space>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-            <Card hoverable>
-              <div className="text-center">
-                <CloudUploadOutlined className="text-5xl text-blue-500 mb-4" />
-                <Title level={4}>Fast Upload</Title>
-                <Paragraph className="text-gray-600">
-                  Upload files and share them instantly with the network
-                </Paragraph>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-8 md:mt-12">
+            <Card hoverable className="text-center">
+              <CloudUploadOutlined className="text-4xl md:text-5xl text-blue-500 mb-3 md:mb-4" />
+              <Title level={4} className="text-base md:text-lg">Fast Upload</Title>
+              <Paragraph className="text-gray-600 text-sm md:text-base">
+                Upload files and share them instantly with the network
+              </Paragraph>
             </Card>
 
-            <Card hoverable>
-              <div className="text-center">
-                <TeamOutlined className="text-5xl text-green-500 mb-4" />
-                <Title level={4}>P2P Network</Title>
-                <Paragraph className="text-gray-600">
-                  Connect directly with peers without central servers
-                </Paragraph>
-              </div>
+            <Card hoverable className="text-center">
+              <TeamOutlined className="text-4xl md:text-5xl text-green-500 mb-3 md:mb-4" />
+              <Title level={4} className="text-base md:text-lg">P2P Network</Title>
+              <Paragraph className="text-gray-600 text-sm md:text-base">
+                Connect directly with peers without central servers
+              </Paragraph>
             </Card>
 
-            <Card hoverable>
-              <div className="text-center">
-                <CloudDownloadOutlined className="text-5xl text-purple-500 mb-4" />
-                <Title level={4}>Fast Download</Title>
-                <Paragraph className="text-gray-600">
-                  Download from multiple peers simultaneously
-                </Paragraph>
-              </div>
+            <Card hoverable className="text-center">
+              <CloudDownloadOutlined className="text-4xl md:text-5xl text-purple-500 mb-3 md:mb-4" />
+              <Title level={4} className="text-base md:text-lg">Fast Download</Title>
+              <Paragraph className="text-gray-600 text-sm md:text-base">
+                Download from multiple peers simultaneously
+              </Paragraph>
             </Card>
+          </div>
+
+          {/* Mobile menu */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
+            <div className="flex justify-around p-3">
+              <Link href="/" className="flex flex-col items-center gap-1 text-blue-600">
+                <CloudUploadOutlined className="text-xl" />
+                <span className="text-xs">Home</span>
+              </Link>
+              <Link href="/files" className="flex flex-col items-center gap-1">
+                <FileOutlined className="text-xl" />
+                <span className="text-xs">Files</span>
+              </Link>
+              <Link href="/connected" className="flex flex-col items-center gap-1">
+                <LinkOutlined className="text-xl" />
+                <span className="text-xs">Connected</span>
+              </Link>
+              <Link href="/peers" className="flex flex-col items-center gap-1">
+                <TeamOutlined className="text-xl" />
+                <span className="text-xs">Peers</span>
+              </Link>
+            </div>
           </div>
         </div>
       </Content>
 
-      <Footer className="text-center bg-gray-100">
+      <Footer className="text-center bg-gray-100 text-sm md:text-base pb-16 md:pb-4">
         MeshShare ©2024 - Decentralized File Sharing Network
       </Footer>
     </Layout>

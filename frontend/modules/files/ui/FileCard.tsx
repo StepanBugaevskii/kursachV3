@@ -28,8 +28,10 @@ export const FileCard: React.FC<FileCardProps> = ({ file, onDownload, onDelete }
           type="text" 
           icon={<DownloadOutlined />}
           onClick={() => onDownload?.(file)}
+          size="small"
+          className="text-xs md:text-sm"
         >
-          Download
+          <span className="hidden sm:inline">Download</span>
         </Button>,
         <Button 
           key="delete" 
@@ -37,25 +39,27 @@ export const FileCard: React.FC<FileCardProps> = ({ file, onDownload, onDelete }
           danger 
           icon={<DeleteOutlined />}
           onClick={() => onDelete?.(file)}
+          size="small"
+          className="text-xs md:text-sm"
         >
-          Delete
+          <span className="hidden sm:inline">Delete</span>
         </Button>,
       ]}
     >
-      <div className="flex items-start gap-4">
-        <FileOutlined className="text-4xl text-blue-500" />
-        <div className="flex-1">
-          <Title level={5} className="!mb-1" ellipsis={{ rows: 1 }}>
+      <div className="flex items-start gap-3 md:gap-4">
+        <FileOutlined className="text-3xl md:text-4xl text-blue-500 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <Title level={5} className="mb-1! text-sm md:text-base" ellipsis={{ rows: 2 }}>
             {file.fileName}
           </Title>
-          <Text type="secondary" className="text-sm">
+          <Text type="secondary" className="text-xs md:text-sm">
             {formatSize(file.size)}
           </Text>
-          <div className="mt-2">
-            <Tag color={file.status === 'active' ? 'green' : 'orange'}>
+          <div className="mt-2 flex flex-wrap gap-1">
+            <Tag color={file.status === 'active' ? 'green' : 'orange'} className="text-xs">
               {file.status}
             </Tag>
-            <Tag>{file.mimeType}</Tag>
+            <Tag className="text-xs">{file.mimeType.split('/')[1] || file.mimeType}</Tag>
           </div>
           <Text type="secondary" className="text-xs block mt-2">
             {new Date(file.createdAt).toLocaleDateString()}
