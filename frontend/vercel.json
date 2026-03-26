@@ -1,11 +1,12 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:pwa",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
+  "regions": ["fra1"],
   "env": {
-    "NEXT_PUBLIC_API_URL": "@api_url",
-    "NEXT_PUBLIC_SOCKET_URL": "@socket_url"
+    "NEXT_PUBLIC_API_URL": "@backend_url",
+    "NEXT_PUBLIC_SOCKET_URL": "@backend_url"
   }
 }
