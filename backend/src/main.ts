@@ -5,9 +5,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // CORS для production
+  // CORS для production - убираем слеш в конце
+  const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '') || '*';
+  
   app.enableCors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: [frontendUrl, 'http://localhost:3001'],
     credentials: true,
   });
   

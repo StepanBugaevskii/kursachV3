@@ -6,6 +6,8 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  NEXT_PUBLIC_API_URL = "https://meshnetwork-backend.onrender.com"
+  NEXT_PUBLIC_SOCKET_URL = "https://meshnetwork-backend.onrender.com"
 
 [[redirects]]
   from = "/*"
