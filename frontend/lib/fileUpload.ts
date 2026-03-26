@@ -234,8 +234,8 @@ export class FileDownloader {
       });
     }
 
-    // 4. Combine chunks
-    return new Blob(chunkData, { type: file.mimeType });
+    // 4. Combine chunks - cast to BlobPart for TypeScript
+    return new Blob(chunkData as BlobPart[], { type: file.mimeType });
   }
 
   private async requestChunkFromPeer(

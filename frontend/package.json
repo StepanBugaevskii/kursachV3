@@ -12,9 +12,9 @@
     "lint": "eslint",
     "electron": "cross-env NODE_ENV=development electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3001 && npm run electron\"",
-    "electron:build:win": "cross-env ELECTRON_BUILD=true next build && electron-builder --win",
-    "electron:build:mac": "cross-env ELECTRON_BUILD=true next build && electron-builder --mac",
-    "electron:build:linux": "cross-env ELECTRON_BUILD=true next build && electron-builder --linux"
+    "electron:build:win": "cross-env ELECTRON_BUILD=true NODE_OPTIONS=--max-old-space-size=4096 next build && electron-builder --win",
+    "electron:build:mac": "cross-env ELECTRON_BUILD=true NODE_OPTIONS=--max-old-space-size=4096 next build && electron-builder --mac",
+    "electron:build:linux": "cross-env ELECTRON_BUILD=true NODE_OPTIONS=--max-old-space-size=4096 next build && electron-builder --linux"
   },
   "build": {
     "appId": "com.meshnetwork.app",
