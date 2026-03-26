@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import withPWA from '@ducanh2912/next-pwa';
 
 const isElectronBuild = process.env.ELECTRON_BUILD === 'true';
+const isPWABuild = process.env.PWA_BUILD === 'true';
 
 const baseConfig: NextConfig = {
   reactStrictMode: true,
@@ -15,8 +16,8 @@ const baseConfig: NextConfig = {
 // Для Electron build - без PWA
 if (isElectronBuild) {
   module.exports = baseConfig;
-} else {
-  // Для PWA - с webpack конфигом
+} else if (isPWABuild) {
+  // Для PWA build - с webpack конфигом
   const pwaConfig = withPWA({
     dest: 'public',
     disable: process.env.NODE_ENV === 'development',
@@ -28,6 +29,9 @@ if (isElectronBuild) {
   });
   
   module.exports = pwaConfig(baseConfig);
+} else {
+  // Для обычного production build - без PWA
+  module.exports = baseConfig;
 }
 
 export {};
