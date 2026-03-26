@@ -7,6 +7,7 @@ import { FileList } from '@/modules/files/ui/FileList';
 import { FileUpload } from '@/modules/files/ui/FileUpload';
 import { useFiles } from '@/modules/files/hooks/useFiles';
 import { FileDownloader, UploadProgress } from '@/lib/fileUpload';
+import { P2PStatus } from '@/modules/p2p/ui/P2PStatus';
 import Link from 'next/link';
 
 const { Header, Content } = Layout;
@@ -103,6 +104,10 @@ export default function FilesPage() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <Title level={2}>My Files</Title>
+          </div>
+
+          <div className="mb-6">
+            <P2PStatus />
           </div>
 
           <FileList 

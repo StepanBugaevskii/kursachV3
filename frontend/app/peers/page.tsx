@@ -4,6 +4,8 @@ import { Layout, Typography, Button, Space, Statistic, Row, Col, Card } from 'an
 import { ReloadOutlined, ApiOutlined } from '@ant-design/icons';
 import { PeerList } from '@/modules/peers/ui/PeerList';
 import { usePeers } from '@/modules/peers/hooks/usePeers';
+import { useP2P } from '@/modules/p2p/hooks/useP2P';
+import { P2PStatus } from '@/modules/p2p/ui/P2PStatus';
 import Link from 'next/link';
 
 const { Header, Content } = Layout;
@@ -11,15 +13,22 @@ const { Title } = Typography;
 
 export default function PeersPage() {
   const { peers, loading, refetch } = usePeers();
+  const { connect } = useP2P();
 
   const onlinePeers = peers.filter(p => p.isOnline);
   const offlinePeers = peers.filter(p => !p.isOnline);
+
+  const handlePeerConnect = async (peer: any) => {
+    if (peer.isOnline) {
+      await connect(peer.peerId);
+    }
+  };
 
   return (
     <Layout className="min-h-screen">
       <Header className="bg-white shadow-sm flex items-center justify-between">
         <Link href="/">
-          <Title level={3} className="!mb-0 !text-blue-600 cursor-pointer">
+          <Title level={3} className="mb-0! text-blue-600! cursor-pointer">
             MeshShare
           </Title>
         </Link>
@@ -73,10 +82,14 @@ export default function PeersPage() {
             </Col>
           </Row>
 
+          <div className="mb-6">
+            <P2PStatus />
+          </div>
+
           <PeerList 
             peers={peers} 
             loading={loading}
-            onPeerClick={(peer) => console.log('Peer clicked:', peer)}
+            onPeerClick={handlePeerConnect}
           />
         </div>
       </Content>

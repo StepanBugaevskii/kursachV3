@@ -9,8 +9,8 @@ export const P2PStatus: React.FC = () => {
   const { initialized, peerId, connectedPeers, connect } = useP2P();
   const [connectForm] = Form.useForm();
 
-  const handleConnect = (values: { multiaddr: string }) => {
-    connect(values.multiaddr);
+  const handleConnect = (values: { peerId: string }) => {
+    connect(values.peerId);
     connectForm.resetFields();
   };
 
@@ -39,8 +39,8 @@ export const P2PStatus: React.FC = () => {
         </div>
 
         <Form form={connectForm} onFinish={handleConnect} layout="inline">
-          <Form.Item name="multiaddr" className="flex-1" rules={[{ required: true }]}>
-            <Input placeholder="/ip4/127.0.0.1/tcp/4001/p2p/..." />
+          <Form.Item name="peerId" className="flex-1" rules={[{ required: true }]}>
+            <Input placeholder="peer-user123-1234567890" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" icon={<LinkOutlined />}>
@@ -48,6 +48,15 @@ export const P2PStatus: React.FC = () => {
             </Button>
           </Form.Item>
         </Form>
+
+        {connectedPeers.length > 0 && (
+          <div>
+            <Text type="secondary" className="text-xs">Connected to:</Text>
+            {connectedPeers.map(peer => (
+              <Text key={peer} className="block text-xs font-mono">{peer}</Text>
+            ))}
+          </div>
+        )}
       </Space>
     </Card>
   );

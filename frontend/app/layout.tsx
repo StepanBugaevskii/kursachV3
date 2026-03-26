@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { ConfigProvider } from 'antd';
+import { P2PProvider } from '@/lib/p2p/P2PProvider';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -33,7 +34,9 @@ export default function RootLayout({
               },
             }}
           >
-            {children}
+            <P2PProvider>
+              {children}
+            </P2PProvider>
           </ConfigProvider>
         </AntdRegistry>
       </body>

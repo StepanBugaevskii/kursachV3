@@ -1,6 +1,6 @@
 import { filesApi } from '@/modules/files/http/files.api';
 import { chunksApi } from '@/modules/chunks/http/chunks.api';
-import { p2pClient } from '@/lib/p2p/libp2pClient';
+import { webrtcClient } from '@/lib/p2p/webrtcClient';
 import CryptoJS from 'crypto-js';
 
 const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
@@ -63,8 +63,11 @@ export class FileUploader {
       });
     }
 
-    // 4. Upload chunk metadata to backend
-    const currentPeerId = p2pClient.getPeerId();
+    // 4. Store chunks locally first (IndexedDB)
+    await this.storeChunksLocally(fileMetadata.id, chunks);
+
+    // 5. Upload chunk metadata to backend
+    const currentPeerId = webrtcClient.getPeerId();
     
     for (const chunk of chunks) {
       const chunkMetadata = await chunksApi.create({
@@ -90,10 +93,30 @@ export class FileUploader {
       }
     }
 
-    // 5. Store chunks locally (IndexedDB)
-    await this.storeChunksLocally(fileMetadata.id, chunks);
+    // 6. Setup chunk request handler for P2P sharing
+    webrtcClient.onChunkRequest(async (fileId, chunkIndex) => {
+      return await this.getChunkFromLocal(fileId, chunkIndex);
+    });
 
     return fileMetadata.id;
+  }
+
+  private async getChunkFromLocal(fileId: string, index: number): Promise<Uint8Array | null> {
+    try {
+      const db = await this.openDatabase();
+      const transaction = db.transaction(['chunks'], 'readonly');
+      const store = transaction.objectStore('chunks');
+      const request = store.get([fileId, index]);
+
+      return new Promise((resolve) => {
+        request.onsuccess = () => {
+          resolve(request.result?.data || null);
+        };
+        request.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
   }
 
   private async calculateFileHash(): Promise<string> {
@@ -221,33 +244,13 @@ export class FileDownloader {
     chunkIndex: number
   ): Promise<Uint8Array | null> {
     try {
-      // Request chunk via P2P
-      await p2pClient.requestChunk(peerId, fileId, chunkIndex);
-      
-      // Wait for chunk response (with timeout)
-      return await this.waitForChunk(fileId, chunkIndex, 10000);
+      // Request chunk via P2P WebRTC
+      const data = await webrtcClient.requestChunk(peerId, fileId, chunkIndex, 10000);
+      return data;
     } catch (error) {
       console.error('Failed to request chunk from peer:', error);
       return null;
     }
-  }
-
-  private async waitForChunk(
-    fileId: string,
-    chunkIndex: number,
-    timeout: number
-  ): Promise<Uint8Array | null> {
-    const startTime = Date.now();
-    
-    while (Date.now() - startTime < timeout) {
-      const data = await this.getChunkFromLocal(fileId, chunkIndex);
-      if (data) return data;
-      
-      // Wait a bit before checking again
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    return null;
   }
 
   private async getChunkFromLocal(fileId: string, index: number): Promise<Uint8Array | null> {

@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { p2pClient } from '@/lib/p2p/libp2pClient';
+import { webrtcClient } from '@/lib/p2p/webrtcClient';
 import { message } from 'antd';
+import { useUserStore } from '@/modules/users/model/userStore';
 
 export const useP2P = () => {
   const [initialized, setInitialized] = useState(false);
   const [peerId, setPeerId] = useState<string | null>(null);
   const [connectedPeers, setConnectedPeers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { currentUser } = useUserStore();
 
-  const initialize = async (bootstrapPeers: string[] = []) => {
+  const initialize = async () => {
+    if (!currentUser) {
+      message.error('User not logged in');
+      return;
+    }
+
     setLoading(true);
     try {
-      await p2pClient.initialize(bootstrapPeers);
-      setPeerId(p2pClient.getPeerId());
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      await webrtcClient.initialize(currentUser.id, backendUrl);
+      setPeerId(webrtcClient.getPeerId());
       setInitialized(true);
       message.success('P2P network initialized');
     } catch (error) {
@@ -23,9 +31,9 @@ export const useP2P = () => {
     }
   };
 
-  const connect = async (multiaddr: string) => {
+  const connect = async (peerId: string) => {
     try {
-      await p2pClient.connect(multiaddr);
+      await webrtcClient.connectToPeer(peerId);
       updateConnectedPeers();
       message.success('Connected to peer');
     } catch (error) {
@@ -35,23 +43,17 @@ export const useP2P = () => {
   };
 
   const disconnect = (peerId: string) => {
-    try {
-      p2pClient.disconnect(peerId);
-      updateConnectedPeers();
-      message.success('Disconnected from peer');
-    } catch (error) {
-      message.error('Failed to disconnect');
-      console.error(error);
-    }
+    // WebRTC connections are managed automatically
+    updateConnectedPeers();
   };
 
   const updateConnectedPeers = () => {
-    setConnectedPeers(p2pClient.getConnectedPeers());
+    setConnectedPeers(webrtcClient.getConnectedPeers());
   };
 
   const shutdown = async () => {
     try {
-      await p2pClient.shutdown();
+      await webrtcClient.shutdown();
       setInitialized(false);
       setPeerId(null);
       setConnectedPeers([]);
@@ -61,16 +63,18 @@ export const useP2P = () => {
   };
 
   useEffect(() => {
-    // Auto-initialize on mount
-    if (!initialized && !loading) {
+    // Auto-initialize on mount when user is available
+    if (!initialized && !loading && currentUser) {
       initialize();
     }
 
     // Cleanup on unmount
     return () => {
-      shutdown();
+      if (initialized) {
+        shutdown();
+      }
     };
-  }, []);
+  }, [currentUser]);
 
   return {
     initialized,
