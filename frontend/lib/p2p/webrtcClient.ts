@@ -31,6 +31,9 @@ export class WebRTCClient {
     });
 
     this.setupSocketListeners();
+    
+    // Setup global chunk request handler
+    this.setupChunkRequestHandler();
 
     return new Promise((resolve, reject) => {
       this.socket!.emit('peer:register', {
@@ -47,6 +50,52 @@ export class WebRTCClient {
       });
 
       setTimeout(() => reject(new Error('Registration timeout')), 5000);
+    });
+  }
+
+  private setupChunkRequestHandler(): void {
+    // Global handler for chunk requests from other peers
+    this.onChunkRequestCallback = async (fileId: string, chunkIndex: number, fromPeerId: string) => {
+      try {
+        const db = await this.openDatabase();
+        const transaction = db.transaction(['chunks'], 'readonly');
+        const store = transaction.objectStore('chunks');
+        const request = store.get([fileId, chunkIndex]);
+
+        return new Promise<Uint8Array | null>((resolve) => {
+          request.onsuccess = () => {
+            const result = request.result?.data || null;
+            if (result) {
+              console.log(`✅ Found chunk ${chunkIndex} locally for file ${fileId}`);
+            } else {
+              console.warn(`⚠️ Chunk ${chunkIndex} not found locally for file ${fileId}`);
+            }
+            resolve(result);
+          };
+          request.onerror = () => {
+            console.error(`❌ Error reading chunk ${chunkIndex} from IndexedDB`);
+            resolve(null);
+          };
+        });
+      } catch (error) {
+        console.error('Error accessing IndexedDB:', error);
+        return null;
+      }
+    };
+  }
+
+  private openDatabase(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('MeshShareDB', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains('chunks')) {
+          db.createObjectStore('chunks', { keyPath: ['fileId', 'index'] });
+        }
+      };
     });
   }
 
@@ -179,12 +228,16 @@ export class WebRTCClient {
       const chunkIndex = view.getUint32(2 + fileIdLength, true);
       const chunkData = new Uint8Array(data, 6 + fileIdLength);
 
+      console.log(`✅ Received chunk ${chunkIndex} from ${fromPeerId}, size: ${chunkData.length} bytes`);
+
       const requestKey = `${fileId}-${chunkIndex}`;
       const request = this.pendingRequests.get(requestKey);
       
       if (request) {
         request.resolve(chunkData);
         this.pendingRequests.delete(requestKey);
+      } else {
+        console.warn(`⚠️ No pending request for chunk: ${requestKey}`);
       }
     }
   }
@@ -228,22 +281,30 @@ export class WebRTCClient {
   }
 
   private async handleChunkRequest(fileId: string, chunkIndex: number, fromPeerId: string): Promise<void> {
+    console.log(`📨 Received chunk request: file=${fileId}, chunk=${chunkIndex}, from=${fromPeerId}`);
+    
     if (!this.onChunkRequestCallback) {
-      console.warn('No chunk request handler registered');
+      console.warn('⚠️ No chunk request handler registered');
       return;
     }
 
     const chunkData = await this.onChunkRequestCallback(fileId, chunkIndex, fromPeerId);
     
     if (chunkData) {
+      console.log(`📤 Sending chunk ${chunkIndex} to ${fromPeerId}, size: ${chunkData.length} bytes`);
       await this.sendChunkData(fromPeerId, fileId, chunkIndex, chunkData);
+    } else {
+      console.warn(`⚠️ Chunk ${chunkIndex} not found locally`);
     }
   }
 
   async requestChunk(peerId: string, fileId: string, chunkIndex: number, timeout: number = 10000): Promise<Uint8Array> {
+    console.log(`📥 Requesting chunk ${chunkIndex} from peer ${peerId}`);
+    
     const peer = this.peers.get(peerId);
     
     if (!peer || !peer.dataChannel || peer.dataChannel.readyState !== 'open') {
+      console.log(`⚠️ No active connection to ${peerId}, connecting...`);
       await this.connectToPeer(peerId);
       await this.waitForDataChannel(peerId, 5000);
     }
@@ -252,6 +313,8 @@ export class WebRTCClient {
       const requestKey = `${fileId}-${chunkIndex}`;
       this.pendingRequests.set(requestKey, { fileId, chunkIndex, resolve, reject });
 
+      console.log(`📤 Sending chunk request via socket: ${requestKey}`);
+      
       this.socket!.emit('chunk:request', {
         fileId,
         chunkIndex,
@@ -262,6 +325,7 @@ export class WebRTCClient {
       setTimeout(() => {
         if (this.pendingRequests.has(requestKey)) {
           this.pendingRequests.delete(requestKey);
+          console.error(`⏱️ Chunk request timeout: ${requestKey}`);
           reject(new Error('Chunk request timeout'));
         }
       }, timeout);

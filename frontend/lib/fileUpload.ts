@@ -123,30 +123,7 @@ export class FileUploader {
       }
     }
 
-    // 7. Setup chunk request handler for P2P sharing
-    webrtcClient.onChunkRequest(async (fileId, chunkIndex) => {
-      return await this.getChunkFromLocal(fileId, chunkIndex);
-    });
-
     return fileMetadata.id;
-  }
-
-  private async getChunkFromLocal(fileId: string, index: number): Promise<Uint8Array | null> {
-    try {
-      const db = await this.openDatabase();
-      const transaction = db.transaction(['chunks'], 'readonly');
-      const store = transaction.objectStore('chunks');
-      const request = store.get([fileId, index]);
-
-      return new Promise((resolve) => {
-        request.onsuccess = () => {
-          resolve(request.result?.data || null);
-        };
-        request.onerror = () => resolve(null);
-      });
-    } catch {
-      return null;
-    }
   }
 
   private async calculateFileHash(): Promise<string> {
@@ -229,8 +206,13 @@ export class FileDownloader {
           // Try each provider until successful
           for (const provider of providers) {
             try {
+              // Use peer.peerId (P2P identifier) instead of provider.peerId (database UUID)
+              const p2pPeerId = (provider as any).peer?.peerId || provider.peerId;
+              
+              console.log(`Requesting chunk ${i} from peer ${p2pPeerId}`);
+              
               data = await this.requestChunkFromPeer(
-                provider.peerId,
+                p2pPeerId,
                 this.fileId,
                 i
               );
@@ -238,10 +220,11 @@ export class FileDownloader {
               if (data) {
                 // Store locally for future use
                 await this.storeChunkLocally(this.fileId, i, data);
+                console.log(`✅ Successfully downloaded chunk ${i}`);
                 break;
               }
             } catch (error) {
-              console.warn(`Failed to get chunk from peer ${provider.peerId}:`, error);
+              console.warn(`Failed to get chunk ${i} from peer:`, error);
               continue;
             }
           }

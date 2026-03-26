@@ -17,6 +17,12 @@ export interface ChunkReplica {
   replicaPriority: number;
   healthStatus: string;
   lastVerifiedAt: string;
+  peer?: {
+    id: string;
+    peerId: string;
+    userId: string;
+    isOnline: boolean;
+  };
 }
 
 export const chunksApi = {
