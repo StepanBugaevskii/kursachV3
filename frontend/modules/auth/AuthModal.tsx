@@ -48,8 +48,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
         displayName: values.displayName,
         email: values.email,
         passwordHash: values.password, // В реальном приложении нужно хешировать
-        role: 'user',
-        status: 'active',
       });
       
       login(newUser);
