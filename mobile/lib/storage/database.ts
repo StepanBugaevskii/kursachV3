@@ -1,8 +1,24 @@
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
-const db = SQLite.openDatabaseSync('meshshare.db');
+// Conditionally import SQLite only on native platforms
+let SQLite: any = null;
+let db: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    SQLite = require('expo-sqlite');
+    db = SQLite.openDatabaseSync('meshshare.db');
+  } catch (error) {
+    console.warn('SQLite not available:', error);
+  }
+}
 
 export const initDatabase = async () => {
+  if (!db) {
+    console.log('⚠️ Database not available (web platform)');
+    return;
+  }
+  
   try {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS chunks (
@@ -25,6 +41,11 @@ export const storeChunk = async (
   data: Uint8Array,
   hash?: string
 ) => {
+  if (!db) {
+    console.warn('Database not available, chunk not stored');
+    return;
+  }
+  
   try {
     const base64Data = Buffer.from(data).toString('base64');
     await db.runAsync(
@@ -41,11 +62,16 @@ export const getChunk = async (
   fileId: string,
   chunkIndex: number
 ): Promise<Uint8Array | null> => {
+  if (!db) {
+    console.warn('Database not available');
+    return null;
+  }
+  
   try {
-    const result = await db.getFirstAsync<{ data: string }>(
+    const result = await db.getFirstAsync(
       'SELECT data FROM chunks WHERE fileId = ? AND chunkIndex = ?',
       [fileId, chunkIndex]
-    );
+    ) as { data: string } | null;
     
     if (!result) return null;
     
@@ -57,6 +83,11 @@ export const getChunk = async (
 };
 
 export const deleteFileChunks = async (fileId: string) => {
+  if (!db) {
+    console.warn('Database not available');
+    return;
+  }
+  
   try {
     await db.runAsync('DELETE FROM chunks WHERE fileId = ?', [fileId]);
   } catch (error) {
@@ -65,11 +96,16 @@ export const deleteFileChunks = async (fileId: string) => {
 };
 
 export const getAllStoredFiles = async (): Promise<string[]> => {
+  if (!db) {
+    console.warn('Database not available');
+    return [];
+  }
+  
   try {
-    const results = await db.getAllAsync<{ fileId: string }>(
+    const results = await db.getAllAsync(
       'SELECT DISTINCT fileId FROM chunks'
-    );
-    return results.map((r) => r.fileId);
+    ) as Array<{ fileId: string }>;
+    return results.map((r: { fileId: string }) => r.fileId);
   } catch (error) {
     console.error('Failed to get stored files:', error);
     return [];

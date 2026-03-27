@@ -30,12 +30,17 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === 'auth';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/auth');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
-    }
-  }, [isAuthenticated, segments, isLoading]);
+    // Use setTimeout to ensure navigation happens after render
+    const timeoutId = setTimeout(() => {
+      if (!isAuthenticated && !inAuthGroup) {
+        router.replace('/auth');
+      } else if (isAuthenticated && inAuthGroup) {
+        router.replace('/(tabs)');
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [isAuthenticated, segments, isLoading, router]);
 
   if (isLoading) {
     return (

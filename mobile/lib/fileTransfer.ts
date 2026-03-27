@@ -193,7 +193,7 @@ export class FileDownloader {
     // 3. Get online peers
     const peersResponse = await api.get('/peers');
     const onlinePeers = peersResponse.data.filter((p: any) => p.isOnline);
-    const onlinePeersMap = new Map(
+    const onlinePeersMap = new Map<string, string>(
       onlinePeers.map((p: any) => [p.userId, p.peerId])
     );
 
