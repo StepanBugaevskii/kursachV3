@@ -70,6 +70,17 @@ export class PeersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage('chunk:response')
+  async handleChunkResponse(
+    @MessageBody() data: { toPeerId: string; fileId: string; chunkIndex: number; data: number[] },
+  ) {
+    this.server.emit(`chunk:response:${data.toPeerId}`, {
+      fileId: data.fileId,
+      chunkIndex: data.chunkIndex,
+      data: data.data,
+    });
+  }
+
   @SubscribeMessage('signaling:offer')
   async handleOffer(
     @MessageBody() data: { toPeerId: string; offer: any; fromPeerId: string },

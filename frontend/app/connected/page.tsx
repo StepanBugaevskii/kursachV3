@@ -37,7 +37,8 @@ export default function ConnectedPage() {
         await webrtcClient.initialize(currentUser?.id || '', backendUrl);
         message.success('P2P network initialized');
       } catch (error) {
-        message.error('Failed to initialize P2P network. Cannot download file.');
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        message.error(`Failed to initialize P2P: ${errorMsg}`);
         console.error('P2P initialization error:', error);
         return;
       }
@@ -70,7 +71,8 @@ export default function ConnectedPage() {
 
       message.success('File downloaded successfully');
     } catch (error) {
-      message.error('Failed to download file');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      message.error(`Download failed: ${errorMsg}`, 5);
       console.error('Download error:', error);
     } finally {
       setDownloading(false);

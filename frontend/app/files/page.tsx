@@ -56,8 +56,9 @@ export default function FilesPage() {
 
       message.success('File downloaded successfully');
     } catch (error) {
-      message.error('Failed to download file');
-      console.error(error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      message.error(`Download failed: ${errorMsg}`, 5);
+      console.error('Download error:', error);
     } finally {
       setDownloading(false);
       setDownloadProgress(null);
