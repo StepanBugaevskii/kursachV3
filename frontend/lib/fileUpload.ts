@@ -244,7 +244,8 @@ export class FileDownloader {
               data = await this.requestChunkFromPeer(
                 currentP2PPeerId,
                 this.fileId,
-                i
+                i,
+                30000 // 30 second timeout for large chunks
               );
               
               if (data) {
@@ -284,11 +285,12 @@ export class FileDownloader {
   private async requestChunkFromPeer(
     peerId: string,
     fileId: string,
-    chunkIndex: number
+    chunkIndex: number,
+    timeout: number = 30000
   ): Promise<Uint8Array | null> {
     try {
       // Request chunk via P2P WebRTC
-      const data = await webrtcClient.requestChunk(peerId, fileId, chunkIndex, 10000);
+      const data = await webrtcClient.requestChunk(peerId, fileId, chunkIndex, timeout);
       return data;
     } catch (error) {
       console.error('Failed to request chunk from peer:', error);

@@ -13,12 +13,25 @@ interface ChunkRequest {
   reject: (error: Error) => void;
 }
 
+interface ChunkPart {
+  partIndex: number;
+  data: Uint8Array;
+}
+
+interface ChunkAssembly {
+  parts: Map<number, Uint8Array>;
+  totalParts: number;
+  fileId: string;
+  chunkIndex: number;
+}
+
 export class WebRTCClient {
   private socket: Socket | null = null;
   private peerId: string | null = null;
   private userId: string | null = null;
   private peers: Map<string, PeerConnection> = new Map();
   private pendingRequests: Map<string, ChunkRequest> = new Map();
+  private chunkAssemblies: Map<string, ChunkAssembly> = new Map();
   private onChunkRequestCallback: ((fileId: string, chunkIndex: number, fromPeerId: string) => Promise<Uint8Array | null>) | null = null;
 
   async initialize(userId: string, backendUrl: string = 'http://localhost:3000'): Promise<void> {
@@ -223,22 +236,60 @@ export class WebRTCClient {
     const messageType = view.getUint8(0);
 
     if (messageType === 1) {
-      // Chunk data response
+      // Chunk data response (possibly multi-part)
       const fileIdLength = view.getUint8(1);
       const fileId = new TextDecoder().decode(new Uint8Array(data, 2, fileIdLength));
       const chunkIndex = view.getUint32(2 + fileIdLength, true);
-      const chunkData = new Uint8Array(data, 6 + fileIdLength);
+      const partIndex = view.getUint32(2 + fileIdLength + 4, true);
+      const totalParts = view.getUint32(2 + fileIdLength + 8, true);
+      const partData = new Uint8Array(data, 2 + fileIdLength + 12);
 
-      console.log(`✅ Received chunk ${chunkIndex} from ${fromPeerId}, size: ${chunkData.length} bytes`);
-
-      const requestKey = `${fileId}-${chunkIndex}`;
-      const request = this.pendingRequests.get(requestKey);
+      const assemblyKey = `${fileId}-${chunkIndex}`;
       
-      if (request) {
-        request.resolve(chunkData);
-        this.pendingRequests.delete(requestKey);
-      } else {
-        console.warn(`⚠️ No pending request for chunk: ${requestKey}`);
+      // Initialize assembly if first part
+      if (!this.chunkAssemblies.has(assemblyKey)) {
+        this.chunkAssemblies.set(assemblyKey, {
+          parts: new Map(),
+          totalParts,
+          fileId,
+          chunkIndex,
+        });
+      }
+
+      const assembly = this.chunkAssemblies.get(assemblyKey)!;
+      assembly.parts.set(partIndex, partData);
+
+      console.log(`📦 Received part ${partIndex + 1}/${totalParts} of chunk ${chunkIndex} from ${fromPeerId}`);
+
+      // Check if all parts received
+      if (assembly.parts.size === totalParts) {
+        // Assemble all parts
+        const totalSize = Array.from(assembly.parts.values()).reduce((sum, part) => sum + part.length, 0);
+        const completeData = new Uint8Array(totalSize);
+        let offset = 0;
+        
+        for (let i = 0; i < totalParts; i++) {
+          const part = assembly.parts.get(i);
+          if (part) {
+            completeData.set(part, offset);
+            offset += part.length;
+          }
+        }
+
+        console.log(`✅ Assembled complete chunk ${chunkIndex} from ${fromPeerId}, size: ${completeData.length} bytes`);
+
+        const requestKey = `${fileId}-${chunkIndex}`;
+        const request = this.pendingRequests.get(requestKey);
+        
+        if (request) {
+          request.resolve(completeData);
+          this.pendingRequests.delete(requestKey);
+        } else {
+          console.warn(`⚠️ No pending request for chunk: ${requestKey}`);
+        }
+
+        // Clean up assembly
+        this.chunkAssemblies.delete(assemblyKey);
       }
     }
   }
@@ -299,7 +350,7 @@ export class WebRTCClient {
     }
   }
 
-  async requestChunk(peerId: string, fileId: string, chunkIndex: number, timeout: number = 10000): Promise<Uint8Array> {
+  async requestChunk(peerId: string, fileId: string, chunkIndex: number, timeout: number = 30000): Promise<Uint8Array> {
     console.log(`📥 Requesting chunk ${chunkIndex} from peer ${peerId}`);
     
     const peer = this.peers.get(peerId);
@@ -326,6 +377,8 @@ export class WebRTCClient {
       setTimeout(() => {
         if (this.pendingRequests.has(requestKey)) {
           this.pendingRequests.delete(requestKey);
+          // Clean up any partial assembly
+          this.chunkAssemblies.delete(requestKey);
           console.error(`⏱️ Chunk request timeout: ${requestKey}`);
           reject(new Error('Chunk request timeout'));
         }
@@ -340,20 +393,43 @@ export class WebRTCClient {
       throw new Error('Data channel not ready');
     }
 
+    const MAX_MESSAGE_SIZE = 16384; // 16KB - safe for all browsers
     const fileIdBytes = new TextEncoder().encode(fileId);
-    const header = new Uint8Array(2 + fileIdBytes.length + 4);
-    const view = new DataView(header.buffer);
     
-    view.setUint8(0, 1); // Message type: chunk data
-    view.setUint8(1, fileIdBytes.length);
-    header.set(fileIdBytes, 2);
-    view.setUint32(2 + fileIdBytes.length, chunkIndex, true);
+    // Calculate total parts needed
+    const totalParts = Math.ceil(data.length / MAX_MESSAGE_SIZE);
+    
+    console.log(`📤 Sending chunk ${chunkIndex} in ${totalParts} parts (total size: ${data.length} bytes)`);
 
-    const message = new Uint8Array(header.length + data.length);
-    message.set(header, 0);
-    message.set(data, header.length);
+    for (let partIndex = 0; partIndex < totalParts; partIndex++) {
+      const start = partIndex * MAX_MESSAGE_SIZE;
+      const end = Math.min(start + MAX_MESSAGE_SIZE, data.length);
+      const partData = data.slice(start, end);
+      
+      // Header: [messageType(1)] [fileIdLength(1)] [fileId(N)] [chunkIndex(4)] [partIndex(4)] [totalParts(4)] [partData]
+      const header = new Uint8Array(2 + fileIdBytes.length + 12);
+      const view = new DataView(header.buffer);
+      
+      view.setUint8(0, 1); // Message type: chunk data
+      view.setUint8(1, fileIdBytes.length);
+      header.set(fileIdBytes, 2);
+      view.setUint32(2 + fileIdBytes.length, chunkIndex, true);
+      view.setUint32(2 + fileIdBytes.length + 4, partIndex, true);
+      view.setUint32(2 + fileIdBytes.length + 8, totalParts, true);
 
-    peer.dataChannel.send(message);
+      const message = new Uint8Array(header.length + partData.length);
+      message.set(header, 0);
+      message.set(partData, header.length);
+
+      peer.dataChannel.send(message);
+      
+      // Small delay between parts to avoid overwhelming the channel
+      if (partIndex < totalParts - 1) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    console.log(`✅ Sent all ${totalParts} parts of chunk ${chunkIndex}`);
   }
 
   private async waitForDataChannel(peerId: string, timeout: number): Promise<void> {
