@@ -393,7 +393,8 @@ export class WebRTCClient {
       throw new Error('Data channel not ready');
     }
 
-    const MAX_MESSAGE_SIZE = 16384; // 16KB - safe for all browsers
+    // Use larger message size for better performance (64KB is safe for modern browsers)
+    const MAX_MESSAGE_SIZE = 65536; // 64KB
     const fileIdBytes = new TextEncoder().encode(fileId);
     
     // Calculate total parts needed
@@ -421,12 +422,12 @@ export class WebRTCClient {
       message.set(header, 0);
       message.set(partData, header.length);
 
-      peer.dataChannel.send(message);
-      
-      // Small delay between parts to avoid overwhelming the channel
-      if (partIndex < totalParts - 1) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+      // Wait for buffer to be ready if needed (256KB threshold)
+      while (peer.dataChannel.bufferedAmount > 262144) {
+        await new Promise(resolve => setTimeout(resolve, 5));
       }
+
+      peer.dataChannel.send(message);
     }
     
     console.log(`✅ Sent all ${totalParts} parts of chunk ${chunkIndex}`);
