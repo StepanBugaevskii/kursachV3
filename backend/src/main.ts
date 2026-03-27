@@ -5,12 +5,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // CORS для production - убираем слеш в конце
-  const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '') || '*';
-  
+  // CORS для всех клиентов (web, mobile, desktop)
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3001', 'http://localhost:8081'],
+    origin: true, // Разрешить все origins для мобильных клиентов
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
   
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
