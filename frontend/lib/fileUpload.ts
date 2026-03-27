@@ -182,44 +182,70 @@ export class FileDownloader {
   }
 
   async download(): Promise<Blob> {
+    console.log('🚀 Starting file download:', this.fileId);
+    
     // 1. Get file metadata
     const file = await filesApi.getOne(this.fileId);
+    console.log('📄 File metadata:', { name: file.fileName, size: file.size, chunks: Math.ceil(file.size / (1024 * 1024)) });
 
     // 2. Get chunks
     const chunks = await chunksApi.getByFile(this.fileId);
     const totalChunks = chunks.length;
+    console.log(`📦 Total chunks to download: ${totalChunks}`);
 
-    // 3. Get online peers to map userId to current P2P peerId
-    const onlinePeersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
-    const onlinePeers = await onlinePeersResponse.json();
-    const onlinePeersMap = new Map(
-      onlinePeers
-        .filter((p: any) => p.isOnline)
-        .map((p: any) => [p.userId, p.peerId])
-    );
+    // 3. Check if P2P is initialized
+    const p2pInitialized = webrtcClient.getPeerId() !== null;
+    console.log(`🔌 P2P initialized: ${p2pInitialized}`);
 
-    console.log('📋 Online peers map:', Array.from(onlinePeersMap.entries()));
+    // 4. Get online peers to map userId to current P2P peerId
+    let onlinePeersMap = new Map<string, string>();
+    
+    if (p2pInitialized) {
+      try {
+        const onlinePeersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
+        const onlinePeers = await onlinePeersResponse.json();
+        onlinePeersMap = new Map(
+          onlinePeers
+            .filter((p: any) => p.isOnline)
+            .map((p: any) => [p.userId, p.peerId])
+        );
+        console.log('📋 Online peers:', onlinePeers.length, 'peers');
+        console.log('📋 Online peers map:', Array.from(onlinePeersMap.entries()));
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch online peers:', error);
+      }
+    }
 
-    // 4. Download chunks
+    // 5. Download chunks
     const chunkData: Uint8Array[] = new Array(totalChunks);
 
     for (let i = 0; i < totalChunks; i++) {
       const chunk = chunks[i];
+      console.log(`\n📥 Processing chunk ${i + 1}/${totalChunks}`);
       
       // Try to get from local storage first
       let data = await this.getChunkFromLocal(this.fileId, i);
+      let providers: any[] = [];
 
-      if (!data) {
+      if (data) {
+        console.log(`✅ Chunk ${i} found in local storage`);
+      } else {
+        console.log(`🔍 Chunk ${i} not in local storage, requesting from peers...`);
+        
         // Get from peers via P2P
-        const providers = await chunksApi.getProviders(chunk.id);
+        providers = await chunksApi.getProviders(chunk.id);
         
-        console.log(`📦 Chunk ${i} providers:`, providers.map(p => ({
-          dbPeerId: p.peerId,
-          userId: (p as any).peer?.userId,
-          p2pPeerId: (p as any).peer?.peerId
-        })));
+        console.log(`📦 Chunk ${i} providers:`, providers.length, 'providers');
+        providers.forEach((p, idx) => {
+          console.log(`  Provider ${idx + 1}:`, {
+            dbPeerId: p.peerId,
+            userId: (p as any).peer?.userId,
+            p2pPeerId: (p as any).peer?.peerId,
+            isOnline: (p as any).peer?.isOnline
+          });
+        });
         
-        if (providers.length > 0) {
+        if (providers.length > 0 && p2pInitialized) {
           // Try each provider until successful
           for (const provider of providers) {
             try {
@@ -251,21 +277,30 @@ export class FileDownloader {
               if (data) {
                 // Store locally for future use
                 await this.storeChunkLocally(this.fileId, i, data);
-                console.log(`✅ Successfully downloaded chunk ${i}`);
+                console.log(`✅ Successfully downloaded chunk ${i} (${data.length} bytes)`);
                 break;
+              } else {
+                console.warn(`⚠️ Received null data for chunk ${i} from peer ${currentP2PPeerId}`);
               }
             } catch (error) {
-              console.warn(`Failed to get chunk ${i} from peer:`, error);
+              console.warn(`❌ Failed to get chunk ${i} from peer:`, error);
               continue;
             }
           }
+        } else if (!p2pInitialized) {
+          console.error(`❌ P2P not initialized, cannot download chunk ${i}`);
+        } else {
+          console.error(`❌ No providers available for chunk ${i}`);
         }
       }
 
       if (data) {
         chunkData[i] = data;
+        console.log(`✅ Chunk ${i} ready (${data.length} bytes)`);
       } else {
-        throw new Error(`Failed to download chunk ${i}`);
+        const errorMsg = `Failed to download chunk ${i}. P2P initialized: ${p2pInitialized}, Providers: ${providers?.length || 0}`;
+        console.error(`❌ ${errorMsg}`);
+        throw new Error(errorMsg);
       }
 
       // Report progress
@@ -278,8 +313,13 @@ export class FileDownloader {
       });
     }
 
-    // 5. Combine chunks - cast to BlobPart for TypeScript
-    return new Blob(chunkData as BlobPart[], { type: file.mimeType });
+    console.log('🎉 All chunks downloaded, assembling file...');
+    
+    // 6. Combine chunks - cast to BlobPart for TypeScript
+    const blob = new Blob(chunkData as BlobPart[], { type: file.mimeType });
+    console.log(`✅ File assembled: ${blob.size} bytes`);
+    
+    return blob;
   }
 
   private async requestChunkFromPeer(

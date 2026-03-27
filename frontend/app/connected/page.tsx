@@ -26,6 +26,23 @@ export default function ConnectedPage() {
   };
 
   const handleDownload = async (file: any) => {
+    // Check if P2P is initialized
+    const p2pInitialized = webrtcClient.getPeerId() !== null;
+    
+    if (!p2pInitialized) {
+      message.warning('P2P network not initialized. Initializing...');
+      // Try to initialize P2P
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        await webrtcClient.initialize(currentUser?.id || '', backendUrl);
+        message.success('P2P network initialized');
+      } catch (error) {
+        message.error('Failed to initialize P2P network. Cannot download file.');
+        console.error('P2P initialization error:', error);
+        return;
+      }
+    }
+
     setDownloading(true);
     setDownloadProgress({
       loaded: 0,
@@ -54,7 +71,7 @@ export default function ConnectedPage() {
       message.success('File downloaded successfully');
     } catch (error) {
       message.error('Failed to download file');
-      console.error(error);
+      console.error('Download error:', error);
     } finally {
       setDownloading(false);
       setDownloadProgress(null);

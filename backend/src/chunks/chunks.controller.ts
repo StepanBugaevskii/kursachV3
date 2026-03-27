@@ -22,6 +22,13 @@ export class ChunksController {
     return await this.chunksService.findProviders(chunkId);
   }
 
+  @Get(':chunkId/data')
+  async getChunkData(@Param('chunkId') chunkId: string) {
+    // This endpoint would need to fetch chunk data from a peer or storage
+    // For now, return 404 as chunks are stored locally at peers
+    return { error: 'Chunk data must be requested from peers via P2P' };
+  }
+
   @Post('replicas')
   async addReplica(@Body() replicaData: Partial<ChunkReplicaEntity>) {
     return await this.chunksService.addReplica(replicaData);

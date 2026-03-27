@@ -124,7 +124,10 @@ export default function FilesPage() {
       <Content className="p-4 md:p-8 pb-20 md:pb-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-4 md:mb-6">
-            <Title level={2} className="text-xl md:text-3xl">My Files</Title>
+            <Title level={2} className="text-xl md:text-3xl">Available Files</Title>
+            <Typography.Text type="secondary" className="text-sm">
+              Files from online peers
+            </Typography.Text>
           </div>
 
           <div className="mb-4 md:mb-6">
@@ -149,7 +152,7 @@ export default function FilesPage() {
           </Link>
           <Link href="/files" className="flex flex-col items-center gap-1 text-blue-600">
             <FileOutlined className="text-xl" />
-            <span className="text-xs">My Files</span>
+            <span className="text-xs">Files</span>
           </Link>
           <Link href="/connected" className="flex flex-col items-center gap-1">
             <LinkOutlined className="text-xl" />

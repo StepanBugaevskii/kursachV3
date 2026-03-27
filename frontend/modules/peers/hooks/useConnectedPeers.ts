@@ -25,22 +25,34 @@ export const useConnectedPeers = () => {
         return;
       }
 
+      // Получаем список всех пиров с бэкенда
+      const peerResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
+      const allPeers = await peerResponse.json();
+      
+      // Получаем все файлы
+      const allFiles = await filesApi.getAll();
+
       // Получаем информацию о пирах
       const peersData = await Promise.all(
         connectedPeerIds.map(async (peerId) => {
           try {
-            // Получаем peer из backend
-            const peerResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/peers`);
-            const peers = await peerResponse.json();
-            const peer = peers.find((p: any) => p.peerId === peerId);
+            const peer = allPeers.find((p: any) => p.peerId === peerId);
             
-            if (!peer) return null;
+            if (!peer) {
+              console.log(`Peer not found in database: ${peerId}`);
+              return null;
+            }
+            
+            // Проверяем, что пир онлайн
+            if (!peer.isOnline) {
+              console.log(`Skipping offline peer: ${peerId}`);
+              return null;
+            }
 
             // Получаем пользователя
             const user = await usersApi.getOne(peer.userId);
             
-            // Получаем файлы пользователя
-            const allFiles = await filesApi.getAll();
+            // Получаем только файлы этого онлайн пользователя
             const userFiles = allFiles.filter(f => f.ownerId === peer.userId);
 
             return {
